@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Login / Signup</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <style>
+    body {
+      background-color: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .card {
+      width: 400px;
+      border: none;
+      background: #fff;
+      border-radius: 10px;
+    }
+    .btr { border-top-right-radius: 5px !important; }
+    .btl { border-top-left-radius: 5px !important; }
+    .btn-dark {
+      color: #fff;
+      background-color: #0d6efd;
+      border-color: #0d6efd;
+    }
+    .nav-pills { display: table !important; width: 100%; }
+    .nav-pills .nav-link { border-radius: 0px; border-bottom: 1px solid #0d6efd40; }
+    .nav-item { display: table-cell; background: #0d6efd2e; }
+    .form { padding: 10px; height: 300px; }
+    .form input { margin-bottom: 12px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <ul class="nav nav-pills mb-3" id="pills-tab">
+      <li class="nav-item text-center">
+        <a class="nav-link active btl" id="login-tab" data-bs-toggle="pill" href="#login">Login</a>
+      </li>
+      <li class="nav-item text-center">
+        <a class="nav-link btr" id="signup-tab" data-bs-toggle="pill" href="#signup">Signup</a>
+      </li>
+    </ul>
+
+    <div class="tab-content" id="pills-tabContent">
+      <!-- Login Form -->
+      <div class="tab-pane fade show active" id="login">
+        <div class="form px-4 pt-4">
+          <input type="text" id="login-username" class="form-control" placeholder="Tên đăng nhập">
+          <input type="password" id="login-password" class="form-control" placeholder="Mật khẩu">
+          <button id="btn-login" class="btn btn-dark btn-block w-100">Đăng nhập</button>
+        </div>
+      </div>
+
+      <!-- Signup Form -->
+      <div class="tab-pane fade" id="signup">
+        <div class="form px-4">
+          <input type="text" id="signup-username" class="form-control" placeholder="Tên đăng nhập">
+          <input type="email" id="signup-email" class="form-control" placeholder="Email">
+          <input type="text" id="signup-phone" class="form-control" placeholder="Số điện thoại">
+          <input type="password" id="signup-password" class="form-control" placeholder="Mật khẩu">
+          <button id="btn-signup" class="btn btn-dark btn-block w-100">Đăng ký</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ✅ Nếu đã đăng nhập rồi (có token trong sessionStorage) → vào thẳng chat
+    if (sessionStorage.getItem('token')) {
+      window.location.href = '/index.html';
+    }
+
+    // ✅ Xử lý đăng nhập
+    $('#btn-login').click(async () => {
+      const username = $('#login-username').val().trim();
+      const password = $('#login-password').val().trim();
+
+      if (!username || !password) {
+        alert('Vui lòng nhập đầy đủ thông tin');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          // Lưu token và username vào sessionStorage
+          sessionStorage.setItem('token', data.token);
+          sessionStorage.setItem('username', username);
+          // Chuyển sang trang chat
+          window.location.href = '/index.html';
+        } else {
+          alert(data.message || 'Sai tài khoản hoặc mật khẩu');
+        }
+      } catch (err) {
+        alert('Lỗi kết nối đến server!');
+        console.error(err);
+      }
+    });
+
+    // ✅ Xử lý đăng ký
+    $('#btn-signup').click(async () => {
+      const username = $('#signup-username').val().trim();
+      const email = $('#signup-email').val().trim();
+      const phone = $('#signup-phone').val().trim();
+      const password = $('#signup-password').val().trim();
+
+      if (!username || !password) {
+        alert('Vui lòng nhập đầy đủ thông tin');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username, email, phone, password })
+        });
+
+        const data = await res.json();
+        alert(data.message);
+
+        // Nếu đăng ký xong thành công → chuyển sang tab đăng nhập
+        if (data.success) {
+          $('#login-tab').tab('show');
+        }
+      } catch (err) {
+        alert('Lỗi kết nối đến server!');
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>

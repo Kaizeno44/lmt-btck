@@ -4,53 +4,57 @@
   <meta charset="UTF-8">
   <title>Mini Web Chat</title>
 
-  <!-- Bootstrap CSS -->
+  <!-- Bootstrap + FontAwesome -->
   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
-  <!-- FontAwesome -->
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css">
-  <!-- jQuery + Bootstrap Bundle -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- jQuery + Bootstrap JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
 
-  <link rel="stylesheet" href="style.css">
+  <!-- Socket.io -->
   <script src="/socket.io/socket.io.js"></script>
 </head>
 
-<body style="background-color: #f8fafc;">
-  <div class="container d-flex justify-content-center align-items-center vh-100">
-    <div class="row w-100 justify-content-center">
+<body>
+  <div class="container py-4">
+    <div class="row justify-content-center">
 
       <!-- Khung chat -->
-      <div class="col-md-8 col-lg-7">
-        <div class="card shadow-lg border-0 rounded-3">
-          <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <h4 class="card-title mb-0"><i class="fas fa-comments text-primary"></i> Mini Web Chat</h4>
-            <select id="room-select" class="form-control form-control-sm w-auto">
-              <option value="general">Phòng chung</option>
-              <option value="laptrinh">Phòng Lập trình</option>
-              <option value="giaitri">Phòng Giải trí</option>
-            </select>
+      <div class="col-md-8 col-lg-7 mb-3">
+        <div class="card chat-card shadow-sm">
+          <div class="card-header d-flex justify-content-between align-items-center bg-white border-bottom">
+            <h5 class="mb-0 text-primary"><i class="fas fa-comments"></i> Mini Web Chat</h5>
+            <div class="d-flex align-items-center">
+              <select id="room-select" class="form-control form-control-sm mr-2">
+                <option value="general">Phòng chung</option>
+                <option value="laptrinh">Phòng Lập trình</option>
+                <option value="giaitri">Phòng Giải trí</option>
+              </select>
+              <button id="logout-btn" class="btn btn-sm btn-outline-danger">Đăng xuất</button>
+            </div>
           </div>
 
-          <div id="chat-content" class="p-3" style="height:450px; overflow-y:auto; background:#ffffff;">
-            <!-- Tin nhắn sẽ hiển thị ở đây -->
+          <div id="chat-content" class="card-body chat-body">
+            <!-- Tin nhắn -->
           </div>
 
-          <div class="card-footer d-flex align-items-center bg-light">
-            <img class="avatar avatar-xs mr-2" src="https://img.icons8.com/color/36/000000/administrator-male.png">
-            <input id="message-input" class="form-control border-0 flex-grow-1" type="text" placeholder="Nhập tin nhắn...">
+          <div class="card-footer bg-light d-flex align-items-center">
+            <img class="avatar mr-2" src="https://img.icons8.com/color/36/000000/administrator-male.png">
+            <input id="message-input" type="text" class="form-control border-0" placeholder="Nhập tin nhắn...">
             <button id="send-btn" class="btn btn-link text-info"><i class="fa fa-paper-plane fa-lg"></i></button>
           </div>
         </div>
       </div>
 
       <!-- Người online -->
-      <div class="col-md-3 mt-3 mt-md-0">
-        <div class="card shadow-sm border-0 rounded-3">
-          <div class="card-header bg-primary text-white text-center">
+      <div class="col-md-3">
+        <div class="card shadow-sm online-card">
+          <div class="card-header bg-primary text-white text-center py-2">
             <i class="fas fa-users"></i> Người đang online
           </div>
-          <ul id="user-list" class="list-group list-group-flush" style="min-height: 200px;">
+          <ul id="user-list" class="list-group list-group-flush">
             <!-- Danh sách online -->
           </ul>
         </div>
@@ -59,7 +63,73 @@
     </div>
   </div>
 
-  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
-  <script src="script.js"></script>
+  <!-- JS -->
+  <script>
+    const token = sessionStorage.getItem('token');
+    const username = sessionStorage.getItem('username');
+
+    if (!token || !username) {
+      window.location.href = '/login.html';
+    }
+
+    const socket = io({ auth: { token } });
+    let currentRoom = document.getElementById('room-select').value;
+
+    socket.on('connect', () => {
+      socket.emit('join room', { room: currentRoom });
+    });
+
+    socket.on('chat message', ({ username, message }) => {
+      const div = document.createElement('div');
+      div.innerHTML = `<strong>${username}:</strong> ${message}`;
+      document.getElementById('chat-content').appendChild(div);
+      document.getElementById('chat-content').scrollTop = document.getElementById('chat-content').scrollHeight;
+    });
+
+    socket.on('chat history', (messages) => {
+      const chat = document.getElementById('chat-content');
+      chat.innerHTML = '';
+      messages.forEach(m => {
+        const div = document.createElement('div');
+        div.innerHTML = `<strong>${m.username}:</strong> ${m.message}`;
+        chat.appendChild(div);
+      });
+    });
+
+    socket.on('user list', (users) => {
+      const userList = document.getElementById('user-list');
+      userList.innerHTML = '';
+      users.forEach(u => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item';
+        li.textContent = u;
+        userList.appendChild(li);
+      });
+    });
+
+    document.getElementById('send-btn').addEventListener('click', () => {
+      const msg = document.getElementById('message-input').value.trim();
+      if (!msg) return;
+      socket.emit('chat message', { message: msg, room: currentRoom });
+      document.getElementById('message-input').value = '';
+    });
+
+    document.getElementById('room-select').addEventListener('change', () => {
+      socket.emit('leave room', { room: currentRoom });
+      currentRoom = document.getElementById('room-select').value;
+      socket.emit('join room', { room: currentRoom });
+      document.getElementById('chat-content').innerHTML = '';
+    });
+
+    window.addEventListener('beforeunload', () => {
+      socket.emit('leave room', { room: currentRoom });
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      sessionStorage.clear();
+      socket.emit('leave room', { room: currentRoom });
+      window.location.href = '/login.html';
+    });
+  </script>
 </body>
 </html>

@@ -1,19 +1,32 @@
-const socket = io();
+// ✅ Lấy token đã lưu sau khi đăng nhập (sessionStorage)
+const token = sessionStorage.getItem('token');
+if (!token) {
+  window.location.href = '/login.html'; // Nếu chưa đăng nhập thì quay lại
+}
+
+// ✅ Kết nối socket kèm xác thực JWT
+const socket = io({
+  auth: { token }
+});
 
 // 🌐 Các phần tử HTML
 const chatContent = document.getElementById('chat-content');
 const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
 const roomSelect = document.getElementById('room-select');
-const userList = document.getElementById('user-list'); // 👉 bạn quên dòng này
+const userList = document.getElementById('user-list');
 
-// 🌟 Nhập tên người dùng
-const username = prompt("Nhập tên của bạn:") || "Người lạ";
+// 🌟 Lấy tên người dùng
+const username = sessionStorage.getItem('username');
+if (!username) {
+  window.location.href = '/login.html';
+}
+
 let currentRoom = roomSelect.value;
 
 // 👉 Hàm đổi màu nền theo phòng (CSS)
 function updateRoomColor(room) {
-  document.body.className = ''; // xóa class cũ
+  document.body.className = '';
   document.body.classList.add(`room-${room}`);
 }
 
@@ -28,6 +41,7 @@ roomSelect.addEventListener('change', () => {
   currentRoom = newRoom;
   updateRoomColor(newRoom);
 });
+
 // 👉 Thêm tin nhắn vào khung chat
 function appendMessage(username, message, self = false) {
   const msgDiv = document.createElement('div');
@@ -56,9 +70,7 @@ sendBtn.addEventListener('click', (e) => {
 
 // 👉 Gửi khi nhấn Enter
 messageInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    sendBtn.click();
-  }
+  if (e.key === 'Enter') sendBtn.click();
 });
 
 // 👉 Nhận tin nhắn từ server
@@ -78,7 +90,7 @@ socket.on('chat history', (messages) => {
   });
 });
 
-// 👉 Nhận danh sách người online trong phòng
+// 👉 Nhận danh sách người online
 socket.on('user list', (users) => {
   userList.innerHTML = '';
   users.forEach(u => {
@@ -89,6 +101,21 @@ socket.on('user list', (users) => {
   });
 });
 
-// 👉 Khi mới vào trang
-socket.emit('join room', { room: currentRoom, username });
-updateRoomColor(currentRoom);
+// 👉 Khi kết nối thành công
+socket.on('connect', () => {
+  console.log('✅ Kết nối thành công, socket ID:', socket.id);
+  socket.emit('join room', { room: currentRoom, username });
+  updateRoomColor(currentRoom);
+});
+
+// 👉 Khi tab bị đóng → out khỏi phòng
+window.addEventListener('beforeunload', () => {
+  socket.emit('leave room', { room: currentRoom, username });
+});
+
+// 👉 Xử lý lỗi xác thực
+socket.on('connect_error', (err) => {
+  alert('❌ Lỗi xác thực, vui lòng đăng nhập lại!');
+  sessionStorage.clear();
+  window.location.href = '/login.html';
+});
